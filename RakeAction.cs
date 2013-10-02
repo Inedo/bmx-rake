@@ -13,7 +13,7 @@ namespace Inedo.BuildMasterExtensions.Rake
        "Runs the Rake executable.",
        "Ruby")]
     [CustomEditor(typeof(RakeActionEditor))]
-    public sealed class RakeAction : CommandLineActionBase
+    public sealed class RakeAction : AgentBasedActionBase
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="RakeAction"/> class.
@@ -60,10 +60,10 @@ namespace Inedo.BuildMasterExtensions.Rake
         /// </returns>
         public override string ToString()
         {
-            return String.Format(
+            return string.Format(
                 "Execute the Rake task{0} \"{1}\"{2}",
                 (this.Tasks.Split(new string[] { " " }, StringSplitOptions.RemoveEmptyEntries).Length == 1) ? String.Empty : "s",
-                String.IsNullOrEmpty(this.Tasks) ? "default" : this.Tasks,
+                string.IsNullOrEmpty(this.Tasks) ? "default" : this.Tasks,
                 Util.ConcatNE(" using the Rake File: \"", this.RakeFile, "\"")
             );
         }
@@ -73,31 +73,9 @@ namespace Inedo.BuildMasterExtensions.Rake
         /// </summary>
         protected override void Execute()
         {
-            LogInformation("Executing Rake...");
-
-            using (var agent = (IRemoteProcessExecuter)Util.Agents.CreateAgentFromId(this.ServerId))
-            {
-                ExecuteCommandLine(
-                    agent,
-                    this.RakeExecutablePath,
-                    BuildArguments(),
-                    GetAbsoluteWorkingDirectory((IFileOperationsExecuter)agent)
-                );
-            }
-
-            LogInformation("Rake execution complete.");
-        }
-
-        /// <summary>
-        /// When implemented in a derived class, processes an arbitrary command
-        /// on the appropriate server.
-        /// </summary>
-        /// <param name="name">Name of command to process.</param>
-        /// <param name="args">Optional command arguments.</param>
-        /// <returns>Result of the command.</returns>
-        protected override string ProcessRemoteCommand(string name, string[] args)
-        {
-            throw new NotImplementedException();
+            this.LogInformation("Executing Rake...");
+            this.ExecuteCommandLine(this.RakeExecutablePath, this.BuildArguments(), this.GetAbsoluteWorkingDirectory());
+            this.LogInformation("Rake execution complete.");
         }
 
         /// <summary>
@@ -120,10 +98,12 @@ namespace Inedo.BuildMasterExtensions.Rake
             return string.Join(" ", args.ToArray());
         }
 
-        private string GetAbsoluteWorkingDirectory(IFileOperationsExecuter agent)
+        private string GetAbsoluteWorkingDirectory()
         {
+            var agent = this.Context.Agent.GetService<IFileOperationsExecuter>();
+
             if (string.IsNullOrEmpty(this.WorkingDirectory))
-                return this.RemoteConfiguration.SourceDirectory;
+                return this.Context.SourceDirectory;
             else if (Path.IsPathRooted(this.WorkingDirectory))
                 return this.WorkingDirectory;
             else if (this.WorkingDirectory.StartsWith("~"))
@@ -132,7 +112,7 @@ namespace Inedo.BuildMasterExtensions.Rake
                     this.WorkingDirectory.Substring(1).TrimStart(agent.GetDirectorySeparator())
                 );
             else
-                return Path.Combine(this.RemoteConfiguration.SourceDirectory, this.WorkingDirectory);
+                return Util.Path2.Combine(this.Context.SourceDirectory, this.WorkingDirectory);
         }
     }
 }
